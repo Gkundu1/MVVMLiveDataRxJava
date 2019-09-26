@@ -6,12 +6,16 @@ import com.example.mvvmexample.utils.HelpersJava
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
+import okhttp3.FormBody
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
+@Suppress("SameParameterValue")
 class RetroService(context: Context)
 {
     var networkService: ServiceAPI
@@ -30,6 +34,48 @@ class RetroService(context: Context)
             .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
             .build()
         networkService=retrofitClient.create(ServiceAPI::class.java)
+    }
+
+    constructor(context: Context,formBody: RequestBody) : this(context) {
+
+        val contentType = "application/json"
+        val baseUrl = Const.DMSBASEURL
+        apiObservables = androidx.collection.LruCache<Class<*>, Observable<*>>(10)
+        val okHttpClient = buildClient(context,formBody,contentType)
+
+        val retrofitClient=Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+            .build()
+
+        networkService=retrofitClient.create(ServiceAPI::class.java)
+    }
+
+
+    private fun buildClient(context: Context, formBody: RequestBody,contentType: String): OkHttpClient {
+
+        if(apiObservables!=null)
+        {
+            clearCache()
+        }
+
+        val okHttpClient= HelpersJava.getUnsafeOkHttpBuilderClient()
+        val builder=okHttpClient
+            .connectTimeout(6000, TimeUnit.MILLISECONDS)
+            .readTimeout(3, TimeUnit.MINUTES)
+            .writeTimeout(3, TimeUnit.MINUTES)
+
+        builder.addInterceptor(NetworkConnectionInterceptor(context))
+        builder.addInterceptor(Interceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("Content-Type", contentType)
+                .post(formBody)
+                .build()
+            return@Interceptor chain.proceed(request)
+        })
+        return builder.build()
     }
 
     private fun buildClient(context: Context): OkHttpClient {

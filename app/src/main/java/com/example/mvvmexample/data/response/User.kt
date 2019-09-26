@@ -14,7 +14,7 @@ var  name:String,
 var  email:String,
 @SerializedName("email_verified_at")
 @Expose
-var emailVerifiedAt:Any,
+var emailVerifiedAt:Any?,
 @SerializedName("created_at")
 @Expose
 var  createdAt:String,
